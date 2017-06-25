@@ -6,7 +6,7 @@ mnist = input_data.read_data_sets('MNIST_data/', one_hot=True)
 
 # tuning parameters
 batch_size = 100
-learning_rate = 0.001
+learning_rate = 0.005
 training_epochs = 10
 logs_path = "tensorboard_logs/"
 
@@ -23,10 +23,10 @@ def add_layer(data, input_dim, output_dim, layer_name, activation_function=None)
     with tf.name_scope(layer_name):
         # model parameters will change during training so we use tf.Variable
         with tf.name_scope("weights"):
-            w = tf.Variable(tf.random_normal([input_dim, output_dim]), name='w')
+            w = tf.Variable(tf.random_normal([input_dim, output_dim], stddev=0.1), name='w')
         # bias
         with tf.name_scope("biases"):
-            b = tf.Variable(tf.random_normal([output_dim]), name='b')
+            b = tf.Variable(tf.zeros([output_dim], tf.float32), name='b')
         with tf.name_scope('wx_plus_b'):
             wx_plus_b = tf.add(tf.matmul(data, w), b)
             if activation_function is None:
@@ -46,12 +46,12 @@ with tf.name_scope('input'):
     y = tf.placeholder(tf.float32, shape=[None, 10], name="y-input")
 
 # Adding one hidden layer with relu activation
-hidden_layer = add_layer(x, 784, 100, 'hidden_layer_1', tf.nn.relu)
+hidden_layer = add_layer(x, 784, 500, 'hidden_layer', tf.nn.relu)
 # Adding output layer with sigmoid activation
-output = add_layer(hidden_layer, 100, 10, 'output_layer', tf.nn.sigmoid)
+output = add_layer(hidden_layer, 500, 10, 'output_layer', tf.nn.sigmoid)
 
 # implement model
-with tf.name_scope('softmax_and_cross_entropy'):
+with tf.name_scope('cost_softmax_and_cross_entropy'):
     # this is our cost
     cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=output, labels=y))
     tf.summary.scalar('cost', cost)
@@ -87,15 +87,18 @@ with tf.Session() as sess:
             batch_x, batch_y = mnist.train.next_batch(batch_size)
 
             # perform the operations we defined earlier on batch
-            c, summary = sess.run([cost, summary_op], feed_dict={x: batch_x, y: batch_y})
+            _, c = sess.run([train_op, cost], feed_dict={x: batch_x, y: batch_y})
             epoch_loss += c
             # write log
+            summary = sess.run(summary_op, feed_dict={x: batch_x, y: batch_y})
             writer.add_summary(summary, epoch * batch_count + i)
         print('Epoch:', epoch, ' completed out of ', training_epochs, ' loss:', epoch_loss)
 
+    # testing the model
     correct = tf.equal(tf.argmax(output, 1), tf.argmax(y, 1))
     accuracy = tf.reduce_mean(tf.cast(correct, tf.float32))
     print('Accuracy:', accuracy.eval({x: mnist.test.images, y: mnist.test.labels}))
+    print('Run `tensorboard --logdir=%s` to see the results.' % logs_path)
 
 
 
